@@ -8,7 +8,6 @@ const chatbotHTML = `
   <div class="chat-container hidden" id="chat-container">
     <div class="chat-header">
       <h2>Mike's Chat Assistant</h2>
-      <button id="close-btn">×</button>
       <button id="scrape-btn" style="
         background: none;
         border: 1px solid #F5F5F0;
@@ -19,6 +18,7 @@ const chatbotHTML = `
         font-size: 0.8rem;
         margin-right: 8px;
       ">Scrape Site</button>
+      <button id="close-btn">×</button>
     </div>
     <div class="chat-messages">
       <div class="message bot-message">
@@ -176,6 +176,33 @@ style.textContent = `
   .chat-input button:hover {
     background: #1A1A1A;
   }
+
+  .typing-indicator {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: #E8E8E3;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    width: fit-content;
+  }
+
+  .typing-dot {
+    width: 8px;
+    height: 8px;
+    background: #2C2C2C;
+    border-radius: 50%;
+    opacity: 0.4;
+    animation: typing-dot 1.4s infinite;
+  }
+
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes typing-dot {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-4px); }
+  }
 `;
 
 // Create container and inject HTML
@@ -203,6 +230,19 @@ function addMessage(text, isUser = false) {
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
+function addTypingIndicator() {
+  const typingDiv = document.createElement('div');
+  typingDiv.className = 'typing-indicator';
+  typingDiv.innerHTML = `
+    <div class="typing-dot"></div>
+    <div class="typing-dot"></div>
+    <div class="typing-dot"></div>
+  `;
+  messagesContainer.appendChild(typingDiv);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  return typingDiv;
+}
+
 // Toggle chat container visibility
 chatBubble.addEventListener('click', () => {
   chatContainer.classList.remove('hidden');
@@ -213,48 +253,53 @@ closeBtn.addEventListener('click', () => {
   chatContainer.classList.add('hidden');
 });
 
-// Web scraping functions
-function scrapePageContent() {
-  const pageTitle = document.title;
-  const metaDescription = document.querySelector('meta[name="description"]')?.content || '';
-  const h1Tags = Array.from(document.getElementsByTagName('h1')).map(h1 => h1.textContent);
-  const mainContent = document.querySelector('main')?.textContent || document.body.textContent;
-
-  return {
-    url: window.location.href,
-    title: pageTitle,
-    description: metaDescription,
-    headers: h1Tags,
-    content: mainContent.substring(0, 1000) // First 1000 characters of content
-  };
-}
-
-// API handling
-async function callChatAPI(userMessage, pageContent) {
+// Handle chat functionality
+async function sendMessageToAI(message) {
   try {
-    const response = await fetch('YOUR_API_ENDPOINT', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Add any API keys or authentication headers here
-        // 'Authorization': 'Bearer YOUR_API_KEY'
-      },
-      body: JSON.stringify({
-        message: userMessage,
-        context: pageContent,
-        url: window.location.href
-      })
+    const domain = getCurrentDomain();
+    const response = await callAPI('/', {
+      messages: [
+        { role: 'user', content: message }
+      ],
+      currentDomain: domain
     });
 
-    if (!response.ok) {
-      throw new Error('API call failed');
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let aiResponse = '';
+
+    // Add typing indicator first
+    const typingIndicator = addTypingIndicator();
+    let messageDiv = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      const chunk = decoder.decode(value);
+      aiResponse += chunk;
+
+      // Create or update the message div
+      if (!messageDiv) {
+        // Remove typing indicator before adding the message
+        typingIndicator.remove();
+        // Create new message div
+        messageDiv = document.createElement('div');
+        messageDiv.className = 'message bot-message';
+        messagesContainer.appendChild(messageDiv);
+      }
+      
+      // Update the message content
+      messageDiv.textContent = aiResponse;
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    const data = await response.json();
-    return data.response || 'Sorry, I encountered an error processing your request.';
   } catch (error) {
-    console.error('API Error:', error);
-    return 'Sorry, I encountered an error processing your request.';
+    console.error('Error sending message to AI:', error);
+    addMessage('Sorry, there was an error processing your message. Please try again.', false);
   }
 }
 
@@ -266,25 +311,15 @@ sendButton.addEventListener('click', async () => {
     messageInput.value = '';
 
     // Show typing indicator
-    const typingDiv = document.createElement('div');
-    typingDiv.className = 'message bot-message';
-    typingDiv.textContent = 'Typing...';
-    messagesContainer.appendChild(typingDiv);
+    const typingIndicator = addTypingIndicator();
 
     try {
-      // Scrape page content
-      const pageContent = scrapePageContent();
-
-      // Call API with message and page content
-      const response = await callChatAPI(message, pageContent);
-
-      // Remove typing indicator and show response
-      messagesContainer.removeChild(typingDiv);
-      addMessage(response);
-    } catch (error) {
-      // Remove typing indicator and show error
-      messagesContainer.removeChild(typingDiv);
-      addMessage('Sorry, I encountered an error processing your request.');
+      await sendMessageToAI(message);
+    } finally {
+      // Remove typing indicator if it still exists
+      if (typingIndicator && typingIndicator.parentNode) {
+        typingIndicator.parentNode.removeChild(typingIndicator);
+      }
     }
   }
 });
@@ -359,7 +394,7 @@ async function crawlPageLinks() {
 // Example API call function
 async function callAPI(endpoint, data) {
   try {
-    const response = await fetch(`http://localhost:3000/api/${endpoint}`, {
+    const response = await fetch(`http://localhost:8080${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -368,10 +403,10 @@ async function callAPI(endpoint, data) {
     });
 
     if (!response.ok) {
-      throw new Error(`API call failed: ${response.statusText}`);
+      throw new Error(`API request failed: ${response.status}`);
     }
 
-    return await response.json();
+    return response;
   } catch (error) {
     console.error('API Error:', error);
     throw error;
@@ -405,16 +440,29 @@ async function scrapeAllPages() {
                       doc.body.textContent.substring(0, 1000)
         };
 
-        // Store in vector database
-        await callAPI('store', {
-          url: content.url,
-          title: content.title,
-          content: content.mainContent
-        });
+        // Store in vector database with better error logging
+        try {
+          console.log('Sending to API:', {
+            url: content.url,
+            title: content.title,
+            contentLength: content.mainContent.length
+          });
+
+          // const apiResponse = await callAPI('store', {
+          //   url: content.url,
+          //   title: content.title,
+          //   content: content.mainContent
+          // });
+
+          console.log('API Response:', apiResponse);
+        } catch (apiError) {
+          console.error('API Storage Error:', apiError);
+          // Continue with the scraping even if storage fails
+        }
 
         completed++;
         const progress = ((completed / urls.length) * 100).toFixed(1);
-        console.log(`⏳ Progress: ${progress}% (${completed}/${urls.length}) - Scraped and stored: ${url}`);
+        console.log(`⏳ Progress: ${progress}% (${completed}/${urls.length}) - Scraped: ${url}`);
 
         return content;
       } catch (error) {
@@ -428,7 +476,7 @@ async function scrapeAllPages() {
     scrapedContent.push(...batchResults.filter(Boolean));
   }
 
-  console.log('✅ DONE! All pages scraped and stored');
+  console.log('✅ DONE! All pages scraped');
   console.log('📊 Summary:', {
     totalUrls: urls.length,
     successfulScrapes: scrapedContent.length,
@@ -436,7 +484,7 @@ async function scrapeAllPages() {
   });
 
   if (scrapedContent.length > 0) {
-    console.log('📄 Sample of stored content (first page):', {
+    console.log('📄 Sample of scraped content (first page):', {
       url: scrapedContent[0].url,
       title: scrapedContent[0].title,
       description: scrapedContent[0].description,
@@ -445,7 +493,39 @@ async function scrapeAllPages() {
     });
   }
 
+  await storeScrapedContent(scrapedContent);
   return scrapedContent;
+}
+
+// Get current domain
+function getCurrentDomain() {
+  return window.location.hostname;
+}
+
+// Store scraped content in vector database
+async function storeScrapedContent(pages) {
+  try {
+    const domain = getCurrentDomain();
+    const documents = pages.map(page => ({
+      url: page.url,
+      content: page.mainContent,
+      domain: domain,
+      metadata: {
+        title: page.title
+      }
+    }));
+
+    const response = await callAPI('/store', { documents });
+
+    if (!response.ok) {
+      throw new Error('Failed to store content');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error storing content:', error);
+    throw error;
+  }
 }
 
 // Example of searching stored content

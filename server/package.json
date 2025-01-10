@@ -1,0 +1,23 @@
+{
+  "name": "server",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^1.0.16",
+    "@hono/node-server": "^1.13.7",
+    "@langchain/community": "^0.3.23",
+    "@langchain/openai": "^0.3.16",
+    "@neondatabase/serverless": "^0.10.4",
+    "ai": "^4.0.33",
+    "dotenv": "^16.4.7",
+    "hono": "^4.6.16",
+    "pgshims": "neondatabase/serverless",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.17",
+    "tsx": "^4.7.1"
+  }
+}
