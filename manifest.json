@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Website Chatbot",
+  "version": "1.0",
+  "description": "A chatbot that can be injected into any website",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "https://*/*",
+    "http://*/*"
+  ],
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*",
+    "http://localhost:3000/*",
+    "https://your-api-domain.com/*"
+  ],
+  "action": {
+    "default_icon": {
+      "48": "icons/icon48.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "web_accessible_resources": [{
+    "resources": ["chatbot-app/out/*"],
+    "matches": ["<all_urls>"]
+  }],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}
