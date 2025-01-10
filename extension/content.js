@@ -243,10 +243,62 @@ function addTypingIndicator() {
   return typingDiv;
 }
 
+// Load chat history when chat is opened
+async function loadChatHistory() {
+  try {
+    const domain = getCurrentDomain();
+    const response = await callAPI(`/chat-history/${domain}`, null, 'GET');
+    const data = await response.json();
+    
+    if (data.success && data.messages) {
+      // Clear existing messages
+      messagesContainer.innerHTML = '';
+      
+      // Add each message from history
+      data.messages.forEach(msg => {
+        addMessage(msg.content, msg.role === 'user');
+      });
+      
+      // Scroll to bottom
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+  } catch (error) {
+    console.error('Error loading chat history:', error);
+  }
+}
+
+// Update callAPI to handle different methods
+async function callAPI(endpoint, data, method = 'POST') {
+  try {
+    const options = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    };
+
+    if (data) {
+      options.body = JSON.stringify(data);
+    }
+
+    const response = await fetch(`http://localhost:8080${endpoint}`, options);
+
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status}`);
+    }
+
+    return response;
+  } catch (error) {
+    console.error('API Error:', error);
+    throw error;
+  }
+}
+
 // Toggle chat container visibility
 chatBubble.addEventListener('click', () => {
   chatContainer.classList.remove('hidden');
   messageInput.focus();
+  loadChatHistory(); // Load chat history when opening chat
 });
 
 closeBtn.addEventListener('click', () => {
@@ -392,15 +444,20 @@ async function crawlPageLinks() {
 }
 
 // Example API call function
-async function callAPI(endpoint, data) {
+async function callAPI(endpoint, data, method = 'POST') {
   try {
-    const response = await fetch(`http://localhost:8080${endpoint}`, {
-      method: 'POST',
+    const options = {
+      method,
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data)
-    });
+    };
+
+    if (data) {
+      options.body = JSON.stringify(data);
+    }
+
+    const response = await fetch(`http://localhost:8080${endpoint}`, options);
 
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status}`);

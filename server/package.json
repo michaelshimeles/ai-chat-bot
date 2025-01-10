@@ -10,9 +10,12 @@
     "@langchain/community": "^0.3.23",
     "@langchain/openai": "^0.3.16",
     "@neondatabase/serverless": "^0.10.4",
+    "@types/pg": "^8.11.10",
     "ai": "^4.0.33",
     "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.38.3",
     "hono": "^4.6.16",
+    "pg": "^8.13.1",
     "pgshims": "neondatabase/serverless",
     "zod": "^3.24.1"
   },
