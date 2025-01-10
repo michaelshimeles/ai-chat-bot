@@ -7,27 +7,38 @@ const chatbotHTML = `
   </div>
   <div class="chat-container hidden" id="chat-container">
     <div class="chat-header">
-      <h2>Mike's Chat Assistant</h2>
-      <button id="scrape-btn" style="
-        background: none;
-        border: 1px solid #F5F5F0;
-        color: #F5F5F0;
-        padding: 4px 8px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.8rem;
-        margin-right: 8px;
-      ">Scrape Site</button>
-      <button id="close-btn">×</button>
+      <div class="header-content">
+        <div class="header-title">
+          <h2>Mike's Chat Assistant</h2>
+          <span class="status-indicator">Online</span>
+        </div>
+        <div class="header-actions">
+          <button id="scrape-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M19 9L12 16L5 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Scrape Site
+          </button>
+          <button id="close-btn">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
     </div>
-    <div class="chat-messages">
+    <div class="chat-messages" id="chat-messages">
       <div class="message bot-message">
         Hello! How can I help you today?
       </div>
     </div>
     <div class="chat-input">
       <input type="text" placeholder="Type your message..." id="message-input">
-      <button id="send-btn">Send</button>
+      <button id="send-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22 2L11 13M22 2L15 22L11 13M11 13L2 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
     </div>
   </div>
 `;
@@ -39,169 +50,247 @@ style.textContent = `
     position: fixed;
     bottom: 20px;
     right: 20px;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: #2C2C2C;
-    color: #F5F5F0;
+    width: 56px;
+    height: 56px;
+    border-radius: 28px;
+    background: #2563eb;
+    color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    transition: transform 0.2s ease;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    transition: all 0.2s ease;
     z-index: 10000;
   }
 
   .chat-bubble:hover {
-    transform: scale(1.1);
-    background: #1A1A1A;
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
   }
 
   .chat-container {
     position: fixed;
     bottom: 90px;
     right: 20px;
-    width: 400px;
+    width: 380px;
     height: 600px;
-    border-radius: 12px;
-    background: #F5F5F0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-radius: 16px;
+    background: white;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     z-index: 10000;
     opacity: 1;
     transform-origin: bottom right;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   }
 
   .chat-container.hidden {
     opacity: 0;
-    transform: scale(0.7);
+    transform: scale(0.95);
     pointer-events: none;
   }
 
   .chat-header {
-    background: #2C2C2C;
-    color: #F5F5F0;
-    padding: 1rem;
+    background: #2563eb;
+    color: white;
+    padding: 16px;
+  }
+
+  .header-content {
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
 
-  .chat-header h2 {
+  .header-title {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .header-title h2 {
     margin: 0;
-    font-size: 1.2rem;
-    color: #F5F5F0;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .status-indicator {
+    font-size: 0.8rem;
+    opacity: 0.9;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  #scrape-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s ease;
+  }
+
+  #scrape-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  #scrape-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   #close-btn {
     background: none;
     border: none;
-    color: #F5F5F0;
-    font-size: 1.5rem;
+    color: white;
+    padding: 4px;
     cursor: pointer;
-    padding: 0;
-    width: 32px;
-    height: 32px;
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
     display: flex;
     align-items: center;
-    justify-content: center;
+  }
+
+  #close-btn:hover {
+    opacity: 1;
   }
 
   .chat-messages {
     flex: 1;
     overflow-y: auto;
-    padding: 1rem;
-    background: #F5F5F0;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: #f8fafc;
   }
 
   .message {
-    margin-bottom: 1rem;
-    padding: 0.75rem;
-    border-radius: 0.5rem;
-    max-width: 80%;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    max-width: 85%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    animation: messageAppear 0.3s ease;
+  }
+
+  @keyframes messageAppear {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .bot-message {
-    background: #E8E8E3;
-    color: #2C2C2C;
-    margin-right: auto;
+    background: white;
+    border: 1px solid #e2e8f0;
+    align-self: flex-start;
+    color: #1e293b;
   }
 
   .user-message {
-    background: #2C2C2C;
-    color: #F5F5F0;
-    margin-left: auto;
+    background: #2563eb;
+    color: white;
+    align-self: flex-end;
   }
 
   .chat-input {
-    padding: 1rem;
-    border-top: 1px solid #E8E8E3;
+    padding: 16px;
+    background: white;
+    border-top: 1px solid #e2e8f0;
     display: flex;
-    gap: 0.5rem;
-    background: #F5F5F0;
+    gap: 8px;
   }
 
-  .chat-input input {
+  #message-input {
     flex: 1;
-    padding: 0.75rem;
-    border: 1px solid #E8E8E3;
-    border-radius: 0.375rem;
-    outline: none;
-    background: #FFFFFF;
-    color: #2C2C2C;
+    padding: 10px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
     font-size: 0.95rem;
+    transition: border-color 0.2s ease;
+    outline: none;
+    color: #1e293b;
+    background: white;
   }
 
-  .chat-input input:focus {
-    border-color: #2C2C2C;
+  #message-input::placeholder {
+    color: #94a3b8;
   }
 
-  .chat-input button {
-    background: #2C2C2C;
-    color: #F5F5F0;
+  #message-input:focus {
+    border-color: #2563eb;
+  }
+
+  #send-btn {
+    background: #2563eb;
+    color: white;
     border: none;
-    padding: 0.75rem 1.25rem;
-    border-radius: 0.375rem;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
     cursor: pointer;
-    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: background 0.2s ease;
   }
 
-  .chat-input button:hover {
-    background: #1A1A1A;
+  #send-btn:hover {
+    background: #1d4ed8;
   }
 
   .typing-indicator {
     display: flex;
-    gap: 0.5rem;
-    padding: 0.75rem;
-    background: #E8E8E3;
-    border-radius: 0.5rem;
-    margin-bottom: 1rem;
+    gap: 4px;
+    padding: 12px 16px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    align-self: flex-start;
     width: fit-content;
   }
 
   .typing-dot {
-    width: 8px;
-    height: 8px;
-    background: #2C2C2C;
+    width: 6px;
+    height: 6px;
+    background: #94a3b8;
     border-radius: 50%;
-    opacity: 0.4;
-    animation: typing-dot 1.4s infinite;
+    animation: typingAnimation 1.4s infinite;
   }
 
-  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+  .typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+  }
 
-  @keyframes typing-dot {
-    0%, 60%, 100% { transform: translateY(0); }
-    30% { transform: translateY(-4px); }
+  .typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes typingAnimation {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
   }
 `;
 
@@ -487,70 +576,85 @@ async function scrapeAllPages() {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
 
+        // Remove script and style tags as they don't contain useful content
+        doc.querySelectorAll('script, style').forEach(el => el.remove());
+
+        // Function to clean text
+        const cleanText = (text) => {
+          return text
+            .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
+            .replace(/\n+/g, '\n') // Replace multiple newlines with single newline
+            .trim();
+        };
+
+        // Get all text content from the page
+        const getAllContent = (element) => {
+          const excludeTags = ['script', 'style', 'noscript', 'iframe'];
+          if (excludeTags.includes(element.tagName.toLowerCase())) return '';
+          
+          let content = '';
+          // Add text content if this element directly contains text
+          if (element.childNodes) {
+            element.childNodes.forEach(node => {
+              if (node.nodeType === 3) { // Text node
+                content += node.textContent + ' ';
+              } else if (node.nodeType === 1) { // Element node
+                content += getAllContent(node) + ' ';
+              }
+            });
+          }
+          return content;
+        };
+
         const content = {
           url,
+          domain: new URL(url).hostname,
           title: doc.title,
           description: doc.querySelector('meta[name="description"]')?.content || '',
-          h1: Array.from(doc.getElementsByTagName('h1')).map(h1 => h1.textContent),
-          mainContent: doc.querySelector('main')?.textContent ||
-                      doc.querySelector('article')?.textContent ||
-                      doc.body.textContent.substring(0, 1000)
+          content: cleanText(getAllContent(doc.body))
         };
 
         // Store in vector database with better error logging
         try {
           console.log('Sending to API:', {
             url: content.url,
+            domain: content.domain,
             title: content.title,
-            contentLength: content.mainContent.length
+            contentLength: content.content.length
           });
 
-          // const apiResponse = await callAPI('store', {
-          //   url: content.url,
-          //   title: content.title,
-          //   content: content.mainContent
-          // });
+          await storeScrapedContent([{
+            url: content.url,
+            domain: content.domain,
+            content: `Title: ${content.title}\nDescription: ${content.description}\n\nContent:\n${content.content}`
+          }]);
 
-          console.log('API Response:', apiResponse);
-        } catch (apiError) {
-          console.error('API Storage Error:', apiError);
-          // Continue with the scraping even if storage fails
+          completed++;
+          console.log(`✅ Scraped and stored ${completed}/${urls.length} pages`);
+          
+          return content;
+        } catch (error) {
+          console.error('Error storing content in vector database:', error);
+          throw error;
         }
-
-        completed++;
-        const progress = ((completed / urls.length) * 100).toFixed(1);
-        console.log(`⏳ Progress: ${progress}% (${completed}/${urls.length}) - Scraped: ${url}`);
-
-        return content;
       } catch (error) {
-        console.error(`❌ Error processing ${url}:`, error);
-        completed++;
+        console.error(`Error scraping ${url}:`, error);
         return null;
       }
     });
 
-    const batchResults = await Promise.all(batchPromises);
-    scrapedContent.push(...batchResults.filter(Boolean));
+    try {
+      const batchResults = await Promise.all(batchPromises);
+      scrapedContent.push(...batchResults.filter(Boolean));
+    } catch (error) {
+      console.error('Error processing batch:', error);
+    }
+
+    // Small delay between batches to avoid overwhelming the server
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
-  console.log('✅ DONE! All pages scraped');
-  console.log('📊 Summary:', {
-    totalUrls: urls.length,
-    successfulScrapes: scrapedContent.length,
-    failedScrapes: urls.length - scrapedContent.length
-  });
-
-  if (scrapedContent.length > 0) {
-    console.log('📄 Sample of scraped content (first page):', {
-      url: scrapedContent[0].url,
-      title: scrapedContent[0].title,
-      description: scrapedContent[0].description,
-      h1: scrapedContent[0].h1,
-      contentPreview: scrapedContent[0].mainContent.substring(0, 500) + '...'
-    });
-  }
-
-  await storeScrapedContent(scrapedContent);
+  console.log(`🎉 Scraping completed! Processed ${completed}/${urls.length} pages`);
   return scrapedContent;
 }
 
@@ -565,7 +669,7 @@ async function storeScrapedContent(pages) {
     const domain = getCurrentDomain();
     const documents = pages.map(page => ({
       url: page.url,
-      content: page.mainContent,
+      content: page.content,
       domain: domain,
       metadata: {
         title: page.title

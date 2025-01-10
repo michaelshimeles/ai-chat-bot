@@ -42,7 +42,7 @@ app.get("/chat-history/:domain", async (c) => {
   try {
     const domain = c.req.param("domain");
     const messages = await getChatHistory(domain);
-    
+
     return c.json({
       success: true,
       messages: messages
@@ -76,20 +76,34 @@ app.post("/", async (c) => {
     (doc: any) => doc.metadata && doc.metadata.domain === currentDomain
   );
 
+  // Format context for better readability
+  const formattedContext = domainFilteredDocs.map((doc: any) =>
+    `Content from ${doc.metadata.url}:\n${doc.pageContent}`
+  ).join('\n\n');
+
   // Add context to the conversation
   const contextEnhancedMessages = [
     {
       role: "system",
-      content:
-        "You are a customer service assistant. Use the following context from the current website to help answer the user's question: " +
-        domainFilteredDocs.map((doc: any) => doc.pageContent).join("\n\n") +
-        "\n\nPlease respond in a friendly and helpful manner, providing clear and concise answers.",
+      content: `You are a helpful AI assistant with access to the current website's content.
+I have scraped and indexed the content from this website, and I will provide relevant sections based on the user's questions.
+
+Here is the relevant content from ${currentDomain}:
+${formattedContext}
+
+Instructions:
+1. Use the above content to provide accurate answers about this website
+2. If the provided content doesn't contain enough information to answer the question, acknowledge that and suggest what other information might be needed
+3. Always maintain a helpful and friendly tone
+4. If you quote or reference specific content, mention that it's from the website
+
+Please provide clear and concise answers based on this context.`
     },
     ...messages,
   ];
 
   const result = streamText({
-    model: openai("gpt-4"),
+    model: openai("gpt-4o"),
     messages: contextEnhancedMessages,
     onFinish: ({ text, toolResults, toolCalls, finishReason }) => {
       // Store ai response in history
