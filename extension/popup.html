@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat Assistant Settings</title>
+  <style>
+    body {
+      width: 320px;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .header {
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      margin: 0 0 8px 0;
+      color: #1e293b;
+    }
+
+    .description {
+      color: #64748b;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    .section {
+      background: #f8fafc;
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0 0 12px 0;
+      color: #1e293b;
+    }
+
+    .position-controls {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .position-btn {
+      padding: 8px;
+      border: 1px solid #e2e8f0;
+      background: white;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: #1e293b;
+    }
+
+    .position-btn:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+
+    .position-btn.active {
+      background: #2563eb;
+      color: white;
+      border-color: #2563eb;
+    }
+
+    .status {
+      font-size: 0.875rem;
+      color: #2563eb;
+      margin-top: 8px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Chat Assistant</h1>
+      <p class="description">
+        Your AI-powered chat assistant that understands the content of any website you visit.
+        Simply click the chat bubble to start asking questions about the current page.
+      </p>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Chat Bubble Position</h2>
+      <div class="position-controls">
+        <button class="position-btn" data-position="top-left">Top Left</button>
+        <button class="position-btn" data-position="top-center">Top</button>
+        <button class="position-btn" data-position="top-right">Top Right</button>
+        <button class="position-btn" data-position="middle-left">Left</button>
+        <button class="position-btn" data-position="middle-center">Center</button>
+        <button class="position-btn" data-position="middle-right">Right</button>
+        <button class="position-btn active" data-position="bottom-left">Bottom Left</button>
+        <button class="position-btn" data-position="bottom-center">Bottom</button>
+        <button class="position-btn" data-position="bottom-right">Bottom Right</button>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -64,10 +64,28 @@ style.textContent = `
     z-index: 10000;
   }
 
+  /* Position classes */
+  .chat-bubble.top-left { top: 20px; left: 20px; bottom: auto; right: auto; }
+  .chat-bubble.top-center { top: 20px; left: 50%; bottom: auto; right: auto; transform: translateX(-50%); }
+  .chat-bubble.top-right { top: 20px; right: 20px; bottom: auto; left: auto; }
+  .chat-bubble.middle-left { top: 50%; left: 20px; bottom: auto; right: auto; transform: translateY(-50%); }
+  .chat-bubble.middle-center { top: 50%; left: 50%; bottom: auto; right: auto; transform: translate(-50%, -50%); }
+  .chat-bubble.middle-right { top: 50%; right: 20px; bottom: auto; left: auto; transform: translateY(-50%); }
+  .chat-bubble.bottom-left { bottom: 20px; left: 20px; top: auto; right: auto; }
+  .chat-bubble.bottom-center { bottom: 20px; left: 50%; top: auto; right: auto; transform: translateX(-50%); }
+  .chat-bubble.bottom-right { bottom: 20px; right: 20px; top: auto; left: auto; }
+
   .chat-bubble:hover {
     transform: scale(1.05);
     box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
   }
+
+  /* Maintain hover transform with position transforms */
+  .chat-bubble.top-center:hover { transform: translateX(-50%) scale(1.05); }
+  .chat-bubble.middle-left:hover { transform: translateY(-50%) scale(1.05); }
+  .chat-bubble.middle-center:hover { transform: translate(-50%, -50%) scale(1.05); }
+  .chat-bubble.middle-right:hover { transform: translateY(-50%) scale(1.05); }
+  .chat-bubble.bottom-center:hover { transform: translateX(-50%) scale(1.05); }
 
   .chat-container {
     position: fixed;
@@ -338,16 +356,16 @@ async function loadChatHistory() {
     const domain = getCurrentDomain();
     const response = await callAPI(`/chat-history/${domain}`, null, 'GET');
     const data = await response.json();
-    
+
     if (data.success && data.messages) {
       // Clear existing messages
       messagesContainer.innerHTML = '';
-      
+
       // Add each message from history
       data.messages.forEach(msg => {
         addMessage(msg.content, msg.role === 'user');
       });
-      
+
       // Scroll to bottom
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
@@ -432,7 +450,7 @@ async function sendMessageToAI(message) {
         messageDiv.className = 'message bot-message';
         messagesContainer.appendChild(messageDiv);
       }
-      
+
       // Update the message content
       messageDiv.textContent = aiResponse;
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -591,7 +609,7 @@ async function scrapeAllPages() {
         const getAllContent = (element) => {
           const excludeTags = ['script', 'style', 'noscript', 'iframe'];
           if (excludeTags.includes(element.tagName.toLowerCase())) return '';
-          
+
           let content = '';
           // Add text content if this element directly contains text
           if (element.childNodes) {
@@ -631,7 +649,7 @@ async function scrapeAllPages() {
 
           completed++;
           console.log(`✅ Scraped and stored ${completed}/${urls.length} pages`);
-          
+
           return content;
         } catch (error) {
           console.error('Error storing content in vector database:', error);
@@ -720,3 +738,31 @@ scrapeButton.addEventListener('click', async () => {
     addMessage('Sorry, there was an error scraping the site.', false);
   }
 });
+
+// Load saved position
+chrome.storage.sync.get(['chatPosition'], function(result) {
+  if (result.chatPosition) {
+    updateBubblePosition(result.chatPosition);
+  }
+});
+
+// Listen for position update messages
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+  if (request.action === 'updatePosition') {
+    updateBubblePosition(request.position);
+  }
+});
+
+function updateBubblePosition(position) {
+  const bubble = document.querySelector('.chat-bubble');
+  if (bubble) {
+    // Remove all position classes
+    bubble.classList.remove(
+      'top-left', 'top-center', 'top-right',
+      'middle-left', 'middle-center', 'middle-right',
+      'bottom-left', 'bottom-center', 'bottom-right'
+    );
+    // Add new position class
+    bubble.classList.add(position);
+  }
+}

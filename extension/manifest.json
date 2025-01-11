@@ -1,22 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "Website Chatbot",
+  "name": "Website Chat Assistant",
+  "description": "An AI-powered chat assistant that helps you understand and interact with website content",
   "version": "1.0",
-  "description": "A chatbot that can be injected into any website",
   "permissions": [
     "activeTab",
-    "scripting",
     "storage",
-    "https://*/*",
-    "http://*/*"
-  ],
-  "host_permissions": [
-    "https://*/*",
-    "http://*/*",
-    "http://localhost:3000/*",
-    "https://your-api-domain.com/*"
+    "scripting"
   ],
   "action": {
+    "default_popup": "popup.html",
     "default_icon": {
       "48": "icons/icon48.png"
     }
@@ -24,9 +17,17 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "css": ["content.css"]
+      "js": ["content.js"]
     }
+  ],
+  "icons": {
+    "48": "icons/icon48.png"
+  },
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*",
+    "http://localhost:3000/*",
+    "https://your-api-domain.com/*"
   ],
   "web_accessible_resources": [{
     "resources": ["chatbot-app/out/*"],
