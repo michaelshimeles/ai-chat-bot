@@ -7,70 +7,87 @@
       width: 320px;
       padding: 16px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      background: #1a1a1a;
+      color: #fff;
     }
 
     .container {
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 24px;
     }
 
     .header {
-      margin-bottom: 16px;
+      margin-bottom: 8px;
     }
 
     h1 {
       font-size: 1.25rem;
       margin: 0 0 8px 0;
-      color: #1e293b;
+      color: #fff;
     }
 
     .description {
-      color: #64748b;
+      color: #a1a1aa;
       font-size: 0.9rem;
       line-height: 1.5;
       margin: 0;
     }
 
     .section {
-      background: #f8fafc;
+      background: #27272a;
       padding: 16px;
-      border-radius: 8px;
-      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      border: 1px solid #3f3f46;
     }
 
     .section-title {
       font-size: 1rem;
       font-weight: 600;
-      margin: 0 0 12px 0;
-      color: #1e293b;
+      margin: 0 0 16px 0;
+      color: #fff;
     }
 
     .position-controls {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
+      gap: 24px;
+      padding: 8px;
     }
 
     .position-btn {
-      padding: 8px;
-      border: 1px solid #e2e8f0;
-      background: white;
-      border-radius: 6px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: none;
+      background: #3f3f46;
       cursor: pointer;
+      position: relative;
+      padding: 0;
+      margin: 0 auto;
       transition: all 0.2s ease;
-      color: #1e293b;
     }
 
-    .position-btn:hover {
-      background: #f1f5f9;
-      border-color: #cbd5e1;
+    .position-btn::before {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      background: transparent;
+      transition: all 0.2s ease;
+    }
+
+    .position-btn:hover::before {
+      background: rgba(147, 51, 234, 0.1);
     }
 
     .position-btn.active {
-      background: #2563eb;
-      color: white;
-      border-color: #2563eb;
+      background: #9333ea;
+      box-shadow: 0 0 12px rgba(147, 51, 234, 0.5);
+    }
+
+    .position-btn.active::before {
+      background: rgba(147, 51, 234, 0.15);
     }
 
     .scrape-controls {
@@ -84,38 +101,39 @@
       align-items: center;
       gap: 8px;
       padding: 10px 16px;
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
+      background: #3f3f46;
+      border: 1px solid #52525b;
+      border-radius: 8px;
       cursor: pointer;
       font-size: 0.9rem;
-      color: #1e293b;
+      color: #fff;
       transition: all 0.2s ease;
       width: 100%;
     }
 
     .action-btn:hover {
-      background: #f8fafc;
-      border-color: #cbd5e1;
+      background: #52525b;
+      border-color: #71717a;
     }
 
     .action-btn:active {
-      background: #f1f5f9;
+      background: #71717a;
     }
 
     .action-btn svg {
       flex-shrink: 0;
+      stroke: currentColor;
     }
 
     .action-btn.loading {
-      background: #f1f5f9;
+      background: #52525b;
       cursor: not-allowed;
       opacity: 0.7;
     }
 
     .status {
       font-size: 0.875rem;
-      color: #2563eb;
+      color: #9333ea;
       margin-top: 8px;
       text-align: center;
       min-height: 1.2em;
@@ -133,17 +151,17 @@
     </div>
 
     <div class="section">
-      <h2 class="section-title">Chat Bubble Position</h2>
+      <h2 class="section-title">Chat position</h2>
       <div class="position-controls">
-        <button class="position-btn" data-position="top-left">Top Left</button>
-        <button class="position-btn" data-position="top-center">Top</button>
-        <button class="position-btn" data-position="top-right">Top Right</button>
-        <button class="position-btn" data-position="middle-left">Left</button>
-        <button class="position-btn" data-position="middle-center">Center</button>
-        <button class="position-btn" data-position="middle-right">Right</button>
-        <button class="position-btn active" data-position="bottom-left">Bottom Left</button>
-        <button class="position-btn" data-position="bottom-center">Bottom</button>
-        <button class="position-btn" data-position="bottom-right">Bottom Right</button>
+        <button class="position-btn" data-position="top-left" title="Top Left"></button>
+        <button class="position-btn" data-position="top-center" title="Top Center"></button>
+        <button class="position-btn" data-position="top-right" title="Top Right"></button>
+        <button class="position-btn" data-position="middle-left" title="Middle Left"></button>
+        <button class="position-btn" data-position="middle-center" title="Middle Center"></button>
+        <button class="position-btn" data-position="middle-right" title="Middle Right"></button>
+        <button class="position-btn active" data-position="bottom-left" title="Bottom Left"></button>
+        <button class="position-btn" data-position="bottom-center" title="Bottom Center"></button>
+        <button class="position-btn" data-position="bottom-right" title="Bottom Right"></button>
       </div>
       <div class="status" id="position-status"></div>
     </div>
