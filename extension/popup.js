@@ -1,6 +1,9 @@
 document.addEventListener('DOMContentLoaded', function() {
   const positionButtons = document.querySelectorAll('.position-btn');
-  const statusElement = document.getElementById('status');
+  const positionStatus = document.getElementById('position-status');
+  const scrapeStatus = document.getElementById('scrape-status');
+  const scrapePageBtn = document.getElementById('scrape-page');
+  const scrapeSiteBtn = document.getElementById('scrape-site');
 
   // Load saved position
   chrome.storage.sync.get(['chatPosition'], function(result) {
@@ -25,9 +28,9 @@ document.addEventListener('DOMContentLoaded', function() {
       // Save position to storage
       chrome.storage.sync.set({ chatPosition: position }, function() {
         // Show status message
-        statusElement.textContent = 'Position updated!';
+        positionStatus.textContent = 'Position updated!';
         setTimeout(() => {
-          statusElement.textContent = '';
+          positionStatus.textContent = '';
         }, 2000);
 
         // Send message to content script
@@ -39,5 +42,61 @@ document.addEventListener('DOMContentLoaded', function() {
         });
       });
     });
+  });
+
+  // Handle scrape page button
+  scrapePageBtn.addEventListener('click', async function() {
+    const button = this;
+    button.classList.add('loading');
+    button.disabled = true;
+    scrapeStatus.textContent = 'Scraping current page...';
+
+    try {
+      // Send message to content script to scrape current page
+      const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+      await chrome.tabs.sendMessage(tab.id, {
+        action: 'scrapePage',
+        fullSite: false
+      });
+
+      scrapeStatus.textContent = 'Page scraped successfully!';
+    } catch (error) {
+      scrapeStatus.textContent = 'Error scraping page';
+      console.error('Scraping error:', error);
+    } finally {
+      button.classList.remove('loading');
+      button.disabled = false;
+      setTimeout(() => {
+        scrapeStatus.textContent = '';
+      }, 2000);
+    }
+  });
+
+  // Handle scrape site button
+  scrapeSiteBtn.addEventListener('click', async function() {
+    const button = this;
+    button.classList.add('loading');
+    button.disabled = true;
+    scrapeStatus.textContent = 'Scraping entire site...';
+
+    try {
+      // Send message to content script to scrape entire site
+      const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+      await chrome.tabs.sendMessage(tab.id, {
+        action: 'scrapePage',
+        fullSite: true
+      });
+
+      scrapeStatus.textContent = 'Site scraped successfully!';
+    } catch (error) {
+      scrapeStatus.textContent = 'Error scraping site';
+      console.error('Scraping error:', error);
+    } finally {
+      button.classList.remove('loading');
+      button.disabled = false;
+      setTimeout(() => {
+        scrapeStatus.textContent = '';
+      }, 2000);
+    }
   });
 });

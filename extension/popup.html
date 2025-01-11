@@ -73,11 +73,52 @@
       border-color: #2563eb;
     }
 
+    .scrape-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .action-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: #1e293b;
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+
+    .action-btn:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+
+    .action-btn:active {
+      background: #f1f5f9;
+    }
+
+    .action-btn svg {
+      flex-shrink: 0;
+    }
+
+    .action-btn.loading {
+      background: #f1f5f9;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
     .status {
       font-size: 0.875rem;
       color: #2563eb;
       margin-top: 8px;
       text-align: center;
+      min-height: 1.2em;
     }
   </style>
 </head>
@@ -104,7 +145,26 @@
         <button class="position-btn" data-position="bottom-center">Bottom</button>
         <button class="position-btn" data-position="bottom-right">Bottom Right</button>
       </div>
-      <div class="status" id="status"></div>
+      <div class="status" id="position-status"></div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Scraping Options</h2>
+      <div class="scrape-controls">
+        <button id="scrape-page" class="action-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 12L11 14L15 10M12 3L4 7V17L12 21L20 17V7L12 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Scrape Current Page
+        </button>
+        <button id="scrape-site" class="action-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 3L4 7V17L12 21L20 17V7L12 3Z M12 12L20 8M12 12L4 8M12 12V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Scrape Entire Site
+        </button>
+      </div>
+      <div class="status" id="scrape-status"></div>
     </div>
   </div>
   <script src="popup.js"></script>

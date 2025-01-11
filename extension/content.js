@@ -490,190 +490,118 @@ messageInput.addEventListener('keypress', (e) => {
 });
 
 // Sitemap and scraping functions
-async function getSitemapUrls() {
-  const currentUrl = new URL(window.location.href);
-  const baseUrl = currentUrl.origin;
-  const sitemapUrl = `${baseUrl}/sitemap.xml`;
-
-  console.log('🔍 Attempting to fetch sitemap from:', sitemapUrl);
-
+async function handleScraping(fullSite) {
   try {
-    // Try sitemap.xml first
-    const response = await fetch(sitemapUrl);
-    if (!response.ok) {
-      // If sitemap.xml fails, try robots.txt
-      console.log('⚠️ No sitemap.xml found, checking robots.txt...');
-      const robotsResponse = await fetch(`${baseUrl}/robots.txt`);
-      if (!robotsResponse.ok) {
-        throw new Error('No robots.txt found');
-      }
+    if (fullSite) {
+      const visited = new Set();
+      const baseUrl = window.location.origin;
+      const results = [];
 
-      const robotsText = await robotsResponse.text();
-      const sitemapMatch = robotsText.match(/Sitemap: (.*)/i);
-      if (!sitemapMatch) {
-        throw new Error('No sitemap URL found in robots.txt');
-      }
+      // Start crawling from current page
+      await crawlSite(window.location.href, baseUrl, visited, results);
 
-      const alternateSitemapUrl = sitemapMatch[1];
-      console.log('📍 Found sitemap URL in robots.txt:', alternateSitemapUrl);
-      const sitemapResponse = await fetch(alternateSitemapUrl);
-      if (!sitemapResponse.ok) {
-        throw new Error('Failed to fetch sitemap from robots.txt URL');
+      if (results.length > 0) {
+        // Process and store results in chunks
+        for (const result of results) {
+          const chunks = chunkContent(result);
+          await storeScrapedContent(chunks);
+        }
+        console.log(`✅ Site scraped successfully! Processed ${results.length} pages`);
       }
-      return await parseSitemapXml(await sitemapResponse.text());
+    } else {
+      // Get the current page's content directly from the DOM
+      const content = {
+        url: window.location.href,
+        domain: window.location.hostname,
+        content: `Title: ${document.title}\nDescription: ${document.querySelector('meta[name="description"]')?.content || ''}\n\nContent:\n${getPageContent()}`
+      };
+
+      const chunks = chunkContent(content);
+      await storeScrapedContent(chunks);
+      console.log('✅ Current page scraped successfully');
     }
-
-    return await parseSitemapXml(await response.text());
   } catch (error) {
-    console.log('⚠️ Failed to fetch sitemap, falling back to page crawling...');
-    return await crawlPageLinks();
-  }
-}
-
-function parseSitemapXml(xmlText) {
-  const parser = new DOMParser();
-  const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
-  const urls = Array.from(xmlDoc.getElementsByTagName('loc')).map(loc => loc.textContent);
-  console.log(`📋 Found ${urls.length} URLs in sitemap`);
-  return urls;
-}
-
-async function crawlPageLinks() {
-  console.log('🕷️ Crawling page links...');
-  const baseUrl = window.location.origin;
-  const links = Array.from(document.getElementsByTagName('a'))
-    .map(a => a.href)
-    .filter(href => href.startsWith(baseUrl))
-    .filter((href, index, self) => self.indexOf(href) === index); // Remove duplicates
-
-  console.log(`🔗 Found ${links.length} unique internal links`);
-  return links;
-}
-
-// Example API call function
-async function callAPI(endpoint, data, method = 'POST') {
-  try {
-    const options = {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    };
-
-    if (data) {
-      options.body = JSON.stringify(data);
-    }
-
-    const response = await fetch(`http://localhost:8080${endpoint}`, options);
-
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
-    }
-
-    return response;
-  } catch (error) {
-    console.error('API Error:', error);
+    console.error('Error during scraping:', error);
     throw error;
   }
 }
 
-async function scrapeAllPages() {
-  const urls = await getSitemapUrls();
-  const scrapedContent = [];
-  let completed = 0;
+async function crawlSite(startUrl, baseUrl, visited = new Set(), results = []) {
+  const queue = [startUrl];
+  const maxPages = 100; // Limit total pages to prevent overwhelming
 
-  console.log(`🚀 Starting to scrape ${urls.length} pages...`);
+  while (queue.length > 0 && visited.size < maxPages) {
+    const url = queue.shift();
+    if (visited.has(url)) continue;
 
-  const batchSize = 5;
-  for (let i = 0; i < urls.length; i += batchSize) {
-    const batch = urls.slice(i, i + batchSize);
-    const batchPromises = batch.map(async (url) => {
-      try {
-        const response = await fetch(url);
-        const html = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-
-        // Remove script and style tags as they don't contain useful content
-        doc.querySelectorAll('script, style').forEach(el => el.remove());
-
-        // Function to clean text
-        const cleanText = (text) => {
-          return text
-            .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
-            .replace(/\n+/g, '\n') // Replace multiple newlines with single newline
-            .trim();
-        };
-
-        // Get all text content from the page
-        const getAllContent = (element) => {
-          const excludeTags = ['script', 'style', 'noscript', 'iframe'];
-          if (excludeTags.includes(element.tagName.toLowerCase())) return '';
-
-          let content = '';
-          // Add text content if this element directly contains text
-          if (element.childNodes) {
-            element.childNodes.forEach(node => {
-              if (node.nodeType === 3) { // Text node
-                content += node.textContent + ' ';
-              } else if (node.nodeType === 1) { // Element node
-                content += getAllContent(node) + ' ';
-              }
-            });
-          }
-          return content;
-        };
-
-        const content = {
-          url,
-          domain: new URL(url).hostname,
-          title: doc.title,
-          description: doc.querySelector('meta[name="description"]')?.content || '',
-          content: cleanText(getAllContent(doc.body))
-        };
-
-        // Store in vector database with better error logging
-        try {
-          console.log('Sending to API:', {
-            url: content.url,
-            domain: content.domain,
-            title: content.title,
-            contentLength: content.content.length
-          });
-
-          await storeScrapedContent([{
-            url: content.url,
-            domain: content.domain,
-            content: `Title: ${content.title}\nDescription: ${content.description}\n\nContent:\n${content.content}`
-          }]);
-
-          completed++;
-          console.log(`✅ Scraped and stored ${completed}/${urls.length} pages`);
-
-          return content;
-        } catch (error) {
-          console.error('Error storing content in vector database:', error);
-          throw error;
-        }
-      } catch (error) {
-        console.error(`Error scraping ${url}:`, error);
-        return null;
-      }
-    });
+    visited.add(url);
+    console.log(`🔍 Crawling: ${url}`);
 
     try {
-      const batchResults = await Promise.all(batchPromises);
-      scrapedContent.push(...batchResults.filter(Boolean));
-    } catch (error) {
-      console.error('Error processing batch:', error);
-    }
+      // Add small delay to prevent overwhelming the server
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Small delay between batches to avoid overwhelming the server
-    await new Promise(resolve => setTimeout(resolve, 1000));
+      // Fetch and parse the page
+      const response = await fetch(url);
+      const html = await response.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+
+      // Store the page content
+      results.push({
+        url,
+        domain: new URL(url).hostname,
+        content: `Title: ${doc.title}\nDescription: ${doc.querySelector('meta[name="description"]')?.content || ''}\n\nContent:\n${getPageContent(doc.body)}`
+      });
+
+      // Find all links on the page
+      const links = Array.from(doc.querySelectorAll('a[href]'))
+        .map(a => {
+          try {
+            return new URL(a.href, baseUrl).href;
+          } catch {
+            return null;
+          }
+        })
+        .filter(href =>
+          href &&
+          href.startsWith(baseUrl) && // Only include links from same domain
+          !href.includes('#') && // Exclude anchor links
+          !visited.has(href) && // Exclude already visited
+          !href.match(/\.(jpg|jpeg|png|gif|pdf|zip|doc|docx|xls|xlsx)$/i) // Exclude non-HTML resources
+        );
+
+      // Add new links to the queue
+      queue.push(...links);
+
+      // Update progress
+      console.log(`📊 Progress: ${visited.size} pages processed, ${queue.length} in queue`);
+    } catch (error) {
+      console.error(`❌ Error crawling ${url}:`, error);
+    }
   }
 
-  console.log(`🎉 Scraping completed! Processed ${completed}/${urls.length} pages`);
-  return scrapedContent;
+  if (visited.size >= maxPages) {
+    console.log(`ℹ️ Reached maximum page limit (${maxPages})`);
+  }
+
+  return results;
+}
+
+// Helper function to get clean page content
+function getPageContent(element = document.body) {
+  // Create a clone to manipulate
+  const clone = element.cloneNode(true);
+
+  // Remove unwanted elements
+  const elementsToRemove = clone.querySelectorAll('script, style, noscript, iframe, svg');
+  elementsToRemove.forEach(el => el.remove());
+
+  // Get text content and clean it
+  return clone.textContent
+    .replace(/\s+/g, ' ')
+    .replace(/\n+/g, '\n')
+    .trim();
 }
 
 // Get current domain
@@ -725,17 +653,24 @@ scrapeButton.addEventListener('click', async () => {
   button.disabled = true;
 
   try {
-    const scrapedContent = await scrapeAllPages();
-    // Store the scraped content in a global variable for later use
-    window.siteContent = scrapedContent;
+    await handleScraping(true);
     button.textContent = 'Scrape Site';
     button.disabled = false;
-    addMessage(`Scraped ${scrapedContent.length} pages successfully! The content is now available for our conversation.`, false);
+    addMessage(`Scraped site successfully! The content is now available for our conversation.`, false);
   } catch (error) {
     console.error('Failed to scrape site:', error);
     button.textContent = 'Scrape Site';
     button.disabled = false;
     addMessage('Sorry, there was an error scraping the site.', false);
+  }
+});
+
+// Listen for messages from popup
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+  if (request.action === 'updatePosition') {
+    updateBubblePosition(request.position);
+  } else if (request.action === 'scrapePage') {
+    handleScraping(request.fullSite);
   }
 });
 
@@ -765,4 +700,48 @@ function updateBubblePosition(position) {
     // Add new position class
     bubble.classList.add(position);
   }
+}
+
+// Function to chunk content into smaller pieces
+function chunkContent(pageData) {
+  const maxChunkLength = 4000; // Conservative limit to ensure we stay under token limit
+  const chunks = [];
+  let content = pageData.content;
+  
+  // Split content into sentences (roughly)
+  const sentences = content.split(/[.!?]+/);
+  let currentChunk = '';
+  let chunkIndex = 0;
+
+  for (const sentence of sentences) {
+    // Skip empty sentences
+    if (!sentence.trim()) continue;
+
+    const potentialChunk = currentChunk + sentence.trim() + '. ';
+
+    if (potentialChunk.length > maxChunkLength && currentChunk) {
+      // Store current chunk and start a new one
+      chunks.push({
+        url: pageData.url,
+        domain: pageData.domain,
+        content: currentChunk.trim(),
+        chunk_index: chunkIndex++
+      });
+      currentChunk = sentence.trim() + '. ';
+    } else {
+      currentChunk = potentialChunk;
+    }
+  }
+
+  // Add the last chunk if there's anything left
+  if (currentChunk) {
+    chunks.push({
+      url: pageData.url,
+      domain: pageData.domain,
+      content: currentChunk.trim(),
+      chunk_index: chunkIndex
+    });
+  }
+
+  return chunks;
 }
