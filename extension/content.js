@@ -9,7 +9,7 @@ const chatbotHTML = `
     <div class="chat-header">
       <div class="header-content">
         <div class="header-title">
-          <h2>Mike's Chat Assistant</h2>
+          <h2>Chat Assistant</h2>
           <span class="status-indicator">Online</span>
         </div>
         <div class="header-actions">
@@ -707,7 +707,7 @@ function chunkContent(pageData) {
   const maxChunkLength = 4000; // Conservative limit to ensure we stay under token limit
   const chunks = [];
   let content = pageData.content;
-  
+
   // Split content into sentences (roughly)
   const sentences = content.split(/[.!?]+/);
   let currentChunk = '';
