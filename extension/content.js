@@ -510,10 +510,28 @@ async function handleScraping(fullSite) {
       }
     } else {
       // Get the current page's content directly from the DOM
+      const baseUrl = window.location.origin;
+      const pageLinks = Array.from(document.querySelectorAll('a[href]'))
+        .map(a => {
+          try {
+            const href = new URL(a.href, baseUrl).href;
+            return {
+              url: href,
+              text: a.textContent.trim(),
+              title: a.title || null,
+              isInternal: href.startsWith(baseUrl)
+            };
+          } catch {
+            return null;
+          }
+        })
+        .filter(link => link !== null);
+
       const content = {
         url: window.location.href,
         domain: window.location.hostname,
-        content: `Title: ${document.title}\nDescription: ${document.querySelector('meta[name="description"]')?.content || ''}\n\nContent:\n${getPageContent()}`
+        content: `Title: ${document.title}\nDescription: ${document.querySelector('meta[name="description"]')?.content || ''}\n\nPage Links:\n${formatPageLinks(pageLinks)}\n\nContent:\n${getPageContent()}`,
+        links: pageLinks
       };
 
       const chunks = chunkContent(content);
@@ -547,32 +565,42 @@ async function crawlSite(startUrl, baseUrl, visited = new Set(), results = []) {
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
 
-      // Store the page content
-      results.push({
-        url,
-        domain: new URL(url).hostname,
-        content: `Title: ${doc.title}\nDescription: ${doc.querySelector('meta[name="description"]')?.content || ''}\n\nContent:\n${getPageContent(doc.body)}`
-      });
-
-      // Find all links on the page
-      const links = Array.from(doc.querySelectorAll('a[href]'))
+      // Extract all links from the page
+      const pageLinks = Array.from(doc.querySelectorAll('a[href]'))
         .map(a => {
           try {
-            return new URL(a.href, baseUrl).href;
+            const href = new URL(a.href, baseUrl).href;
+            return {
+              url: href,
+              text: a.textContent.trim(),
+              title: a.title || null,
+              isInternal: href.startsWith(baseUrl)
+            };
           } catch {
             return null;
           }
         })
-        .filter(href =>
-          href &&
-          href.startsWith(baseUrl) && // Only include links from same domain
-          !href.includes('#') && // Exclude anchor links
-          !visited.has(href) && // Exclude already visited
-          !href.match(/\.(jpg|jpeg|png|gif|pdf|zip|doc|docx|xls|xlsx)$/i) // Exclude non-HTML resources
-        );
+        .filter(link => link !== null);
 
-      // Add new links to the queue
-      queue.push(...links);
+      // Store the page content with links
+      results.push({
+        url,
+        domain: new URL(url).hostname,
+        content: `Title: ${doc.title}\nDescription: ${doc.querySelector('meta[name="description"]')?.content || ''}\n\nPage Links:\n${formatPageLinks(pageLinks)}\n\nContent:\n${getPageContent(doc.body)}`,
+        links: pageLinks // Store raw link data for reference
+      });
+
+      // Add new internal links to the queue
+      const newLinks = pageLinks
+        .filter(link =>
+          link.isInternal &&
+          !visited.has(link.url) &&
+          !link.url.includes('#') && // Exclude anchor links
+          !link.url.match(/\.(jpg|jpeg|png|gif|pdf|zip|doc|docx|xls|xlsx)$/i) // Exclude non-HTML resources
+        )
+        .map(link => link.url);
+
+      queue.push(...newLinks);
 
       // Update progress
       console.log(`📊 Progress: ${visited.size} pages processed, ${queue.length} in queue`);
@@ -588,20 +616,24 @@ async function crawlSite(startUrl, baseUrl, visited = new Set(), results = []) {
   return results;
 }
 
-// Helper function to get clean page content
-function getPageContent(element = document.body) {
-  // Create a clone to manipulate
-  const clone = element.cloneNode(true);
+// Helper function to format links for content
+function formatPageLinks(links) {
+  const internal = links.filter(link => link.isInternal);
+  const external = links.filter(link => !link.isInternal);
 
-  // Remove unwanted elements
-  const elementsToRemove = clone.querySelectorAll('script, style, noscript, iframe, svg');
-  elementsToRemove.forEach(el => el.remove());
+  let formattedLinks = 'Internal Links:\n';
+  internal.forEach(link => {
+    formattedLinks += `- ${link.text} (${link.url})${link.title ? ` - ${link.title}` : ''}\n`;
+  });
 
-  // Get text content and clean it
-  return clone.textContent
-    .replace(/\s+/g, ' ')
-    .replace(/\n+/g, '\n')
-    .trim();
+  if (external.length > 0) {
+    formattedLinks += '\nExternal Links:\n';
+    external.forEach(link => {
+      formattedLinks += `- ${link.text} (${link.url})${link.title ? ` - ${link.title}` : ''}\n`;
+    });
+  }
+
+  return formattedLinks;
 }
 
 // Get current domain
@@ -744,4 +776,20 @@ function chunkContent(pageData) {
   }
 
   return chunks;
+}
+
+// Helper function to get clean page content
+function getPageContent(element = document.body) {
+  // Create a clone to manipulate
+  const clone = element.cloneNode(true);
+
+  // Remove unwanted elements
+  const elementsToRemove = clone.querySelectorAll('script, style, noscript, iframe, svg');
+  elementsToRemove.forEach(el => el.remove());
+
+  // Get text content and clean it
+  return clone.textContent
+    .replace(/\s+/g, ' ')
+    .replace(/\n+/g, '\n')
+    .trim();
 }

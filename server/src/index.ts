@@ -4,7 +4,7 @@ import { streamText } from "ai";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { stream } from "hono/streaming";
-import { VectorStore, ScrapedContent } from "./lib/vectorStore.js";
+import { addDocuments, similaritySearch, ScrapedContent } from "./lib/vectorStore.js";
 import { storeChatHistory, getChatHistory } from "./db/index.js";
 
 const app = new Hono();
@@ -30,7 +30,7 @@ app.get("/", (c) => {
 app.post("/store", async (c) => {
   try {
     const { documents } = await c.req.json<{ documents: ScrapedContent[] }>();
-    await VectorStore.addDocuments(documents);
+    await addDocuments(documents);
     return c.json({ success: true, message: "Documents stored successfully" });
   } catch (error) {
     console.error("Error storing documents:", error);
@@ -69,7 +69,7 @@ app.post("/", async (c) => {
 
   // Get relevant context from vector store
   const userMessage = messages[messages.length - 1].content;
-  const relevantDocs = await VectorStore.similaritySearch(userMessage);
+  const relevantDocs = await similaritySearch(userMessage);
 
   // Filter documents by current domain
   const domainFilteredDocs = relevantDocs.filter(
