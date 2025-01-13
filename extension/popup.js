@@ -2,8 +2,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const positionButtons = document.querySelectorAll('.position-btn');
   const scrapePageBtn = document.getElementById('scrape-page');
   const scrapeSiteBtn = document.getElementById('scrape-site');
+  const scrapePatternsBtn = document.getElementById('scrape-patterns');
   const positionStatus = document.getElementById('position-status');
   const scrapeStatus = document.getElementById('scrape-status');
+  const patternInput = document.getElementById('pattern-input');
+  const addPatternBtn = document.getElementById('add-pattern');
+  const patternList = document.getElementById('pattern-list');
 
   // First remove any existing active classes
   positionButtons.forEach(btn => btn.classList.remove('active'));
@@ -129,4 +133,107 @@ document.addEventListener('DOMContentLoaded', () => {
       scrapeStatus.textContent = '';
     }, 3000);
   });
+
+  // Scrape patterns button click handler
+  scrapePatternsBtn.addEventListener('click', async () => {
+    const { urlPatterns } = await chrome.storage.sync.get(['urlPatterns']);
+    if (!urlPatterns || urlPatterns.length === 0) {
+      scrapeStatus.textContent = 'Please add URL patterns first';
+      scrapeStatus.style.color = '#ef4444';
+      setTimeout(() => {
+        scrapeStatus.textContent = '';
+      }, 3000);
+      return;
+    }
+
+    // Disable button and show loading state
+    scrapePatternsBtn.disabled = true;
+    scrapePatternsBtn.innerHTML = `
+      <svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Scraping...
+    `;
+
+    try {
+      // Get the active tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      // Send message to content script with the specific URLs to scrape
+      await chrome.tabs.sendMessage(tab.id, { 
+        action: 'scrapePatterns',
+        urls: urlPatterns
+      });
+
+      // Show success message
+      scrapeStatus.textContent = 'Started scraping selected URLs...';
+      scrapeStatus.style.color = '#22c55e';
+    } catch (error) {
+      // Show error message
+      scrapeStatus.textContent = 'Error: ' + error.message;
+      scrapeStatus.style.color = '#ef4444';
+    }
+
+    // Reset button state after delay
+    setTimeout(() => {
+      scrapePatternsBtn.disabled = false;
+      scrapePatternsBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19 9L12 16L5 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Scrape Selected URLs
+      `;
+      scrapeStatus.textContent = '';
+    }, 3000);
+  });
+
+  // URL Pattern Management
+  // Load saved patterns
+  async function loadPatterns() {
+    const { urlPatterns } = await chrome.storage.sync.get(['urlPatterns']);
+    if (urlPatterns) {
+      urlPatterns.forEach(pattern => addPatternToList(pattern));
+    }
+  }
+
+  // Add pattern to UI
+  function addPatternToList(pattern) {
+    const item = document.createElement('div');
+    item.className = 'pattern-item';
+    item.innerHTML = `
+      <span>${pattern}</span>
+      <button class="remove-pattern">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    `;
+
+    const removeBtn = item.querySelector('.remove-pattern');
+    removeBtn.addEventListener('click', async () => {
+      const { urlPatterns } = await chrome.storage.sync.get(['urlPatterns']);
+      const updatedPatterns = urlPatterns.filter(p => p !== pattern);
+      await chrome.storage.sync.set({ urlPatterns: updatedPatterns });
+      item.remove();
+    });
+
+    patternList.appendChild(item);
+  }
+
+  // Handle adding new pattern
+  addPatternBtn.addEventListener('click', async () => {
+    const pattern = patternInput.value.trim();
+    if (!pattern) return;
+
+    const { urlPatterns = [] } = await chrome.storage.sync.get(['urlPatterns']);
+    if (!urlPatterns.includes(pattern)) {
+      urlPatterns.push(pattern);
+      await chrome.storage.sync.set({ urlPatterns });
+      addPatternToList(pattern);
+      patternInput.value = '';
+    }
+  });
+
+  // Load patterns when popup opens
+  loadPatterns();
 });

@@ -354,7 +354,7 @@ function addTypingIndicator() {
 async function loadChatHistory() {
   try {
     const domain = getCurrentDomain();
-    const response = await callAPI(`/chat-history/${domain}`, null, 'GET');
+    const response = await callAPI(`chat-history/${domain}`, null, 'GET');
     const data = await response.json();
 
     if (data.success && data.messages) {
@@ -374,54 +374,68 @@ async function loadChatHistory() {
   }
 }
 
-// Update callAPI to handle different methods
-async function callAPI(endpoint, data, method = 'POST') {
-  try {
-    const options = {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    };
+// Call API with retry logic
+async function callAPI(endpoint, data, method) {
+  const maxRetries = 3;
+  const baseDelay = 1000; // 1 second
 
-    if (data) {
-      options.body = JSON.stringify(data);
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🌐 API Call (Attempt ${attempt}/${maxRetries}):`, {
+        endpoint,
+        method,
+        dataSize: data ? JSON.stringify(data).length : 0
+      });
+
+      const response = await fetch(`http://localhost:8080/${endpoint}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: data ? JSON.stringify(data) : undefined,
+      });
+
+      console.log(`📥 Response status: ${response.status}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Server error response:', errorText);
+        throw new Error(`API request failed: ${response.status}\n${errorText}`);
+      }
+
+      return response;
+    } catch (error) {
+      console.error(`❌ API Error (Attempt ${attempt}/${maxRetries}):`, error);
+
+      if (attempt === maxRetries) {
+        throw error;
+      }
+
+      const delay = baseDelay * Math.pow(2, attempt - 1);
+      console.log(`⏳ Retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
-
-    const response = await fetch(`http://localhost:8080${endpoint}`, options);
-
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
-    }
-
-    return response;
-  } catch (error) {
-    console.error('API Error:', error);
-    throw error;
   }
 }
-
-// Toggle chat container visibility
-chatBubble.addEventListener('click', () => {
-  chatContainer.classList.remove('hidden');
-  messageInput.focus();
-  loadChatHistory(); // Load chat history when opening chat
-});
-
-closeBtn.addEventListener('click', () => {
-  chatContainer.classList.add('hidden');
-});
 
 // Handle chat functionality
 async function sendMessageToAI(message) {
   try {
     const domain = getCurrentDomain();
-    const response = await callAPI('/', {
+    console.log('📝 YURURRR:', message);
+
+    const response = await callAPI('', {
       messages: [
         { role: 'user', content: message }
       ],
-      currentDomain: domain
-    });
+      domain,
+    },
+    'POST'
+  );
+
+    if (!response.ok) {
+      throw new Error('Failed to get response from AI');
+    }
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -473,6 +487,7 @@ sendButton.addEventListener('click', async () => {
     const typingIndicator = addTypingIndicator();
 
     try {
+      console.log('📝 Sending message to AI:', message);
       await sendMessageToAI(message);
     } finally {
       // Remove typing indicator if it still exists
@@ -490,150 +505,213 @@ messageInput.addEventListener('keypress', (e) => {
 });
 
 // Sitemap and scraping functions
-async function handleScraping(fullSite) {
+async function handleScraping(fullSite = false, specificUrls = null) {
   try {
-    if (fullSite) {
-      const visited = new Set();
-      const baseUrl = window.location.origin;
-      const results = [];
+    console.log('🚀 Starting scraping process:', { fullSite, hasSpecificUrls: !!specificUrls });
 
-      // Start crawling from current page
-      await crawlSite(window.location.href, baseUrl, visited, results);
+    // Show scraping status
+    const scrapeBtn = document.querySelector('#scrape-btn');
+    if (scrapeBtn) {
+      scrapeBtn.disabled = true;
+      scrapeBtn.innerHTML = `
+        <svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Scraping...
+      `;
+    }
 
-      if (results.length > 0) {
-        // Process and store results in chunks
-        for (const result of results) {
-          const chunks = chunkContent(result);
-          await storeScrapedContent(chunks);
-        }
-        console.log(`✅ Site scraped successfully! Processed ${results.length} pages`);
-      }
+    let results = [];
+    if (specificUrls) {
+      console.log('🎯 Scraping specific URLs:', specificUrls);
+      results = await scrapeSpecificUrls(specificUrls);
+    } else if (fullSite) {
+      console.log('🌐 Crawling entire site');
+      const { urlPatterns } = await chrome.storage.sync.get(['urlPatterns']);
+      const patterns = urlPatterns || ['*'];
+      results = await crawlSite(patterns);
     } else {
-      // Get the current page's content directly from the DOM
-      const baseUrl = window.location.origin;
-      const pageLinks = Array.from(document.querySelectorAll('a[href]'))
-        .map(a => {
-          try {
-            const href = new URL(a.href, baseUrl).href;
-            return {
-              url: href,
-              text: a.textContent.trim(),
-              title: a.title || null,
-              isInternal: href.startsWith(baseUrl)
-            };
-          } catch {
-            return null;
-          }
-        })
-        .filter(link => link !== null);
-
+      console.log('📄 Scraping current page only');
       const content = {
         url: window.location.href,
         domain: window.location.hostname,
-        content: `Title: ${document.title}\nDescription: ${document.querySelector('meta[name="description"]')?.content || ''}\n\nPage Links:\n${formatPageLinks(pageLinks)}\n\nContent:\n${getPageContent()}`,
-        links: pageLinks
+        content: `Title: ${document.title}\nDescription: ${document.querySelector('meta[name="description"]')?.content || ''}\n\nContent:\n${getPageContent()}`
       };
-
-      const chunks = chunkContent(content);
-      await storeScrapedContent(chunks);
-      console.log('✅ Current page scraped successfully');
+      results = [content];
     }
+
+    console.log(`📊 Processing ${results.length} results`);
+
+    // Send results to backend
+    for (const result of results) {
+      console.log(`🔄 Processing result for ${result.url}`);
+      const chunks = chunkContent(result);
+      console.log(`📦 Created ${chunks.length} chunks for ${result.url}`);
+
+      for (const chunk of chunks) {
+        console.log(`📤 Sending chunk to server, size: ${chunk.content.length}`);
+        const response = await callAPI('store', { documents: [chunk] },
+          'POST'
+        );
+        if (!response.ok) {
+          console.error(`Failed to store chunk for ${result.url}`);
+          continue;
+        }
+        const responseData = await response.json();
+        console.log(`📥 Server response:`, responseData);
+      }
+    }
+
+    // Update button state
+    if (scrapeBtn) {
+      scrapeBtn.disabled = false;
+      scrapeBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19 9L12 16L5 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Scrape Site
+      `;
+    }
+
+    // Show success message
+    addMessage('✅ Successfully scraped and stored content!', false);
   } catch (error) {
-    console.error('Error during scraping:', error);
-    throw error;
+    console.error('❌ Scraping error:', error);
+    addMessage('❌ Error while scraping: ' + error.message, false);
   }
 }
 
-async function crawlSite(startUrl, baseUrl, visited = new Set(), results = []) {
-  const queue = [startUrl];
-  const maxPages = 100; // Limit total pages to prevent overwhelming
+// Handle scraping specific URLs
+async function scrapeSpecificUrls(urls) {
+  const results = [];
 
-  while (queue.length > 0 && visited.size < maxPages) {
+  for (const url of urls) {
+    try {
+      console.log(`🔍 Scraping: ${url}`);
+      const response = await fetch(url);
+      const html = await response.text();
+      console.log(`📄 Got HTML content for ${url}, length: ${html.length}`);
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      console.log(`🔄 Parsed HTML for ${url}`);
+
+      const content = {
+        url,
+        domain: new URL(url).hostname,
+        content: `Title: ${doc.title}\nDescription: ${doc.querySelector('meta[name="description"]')?.content || ''}\n\nContent:\n${getPageContent(doc.body)}`
+      };
+
+      console.log(`📦 Created content object for ${url}:`, {
+        url: content.url,
+        domain: content.domain,
+        contentLength: content.content.length
+      });
+
+      // Store the content immediately after scraping
+      const storeResponse = await callAPI('store', { documents: [content] }, 'POST');
+      if (!storeResponse.ok) {
+        console.error(`Failed to store content for ${url}`);
+      }
+
+      results.push(content);
+
+      // Add a small delay to avoid overwhelming the server
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error(`❌ Error scraping ${url}:`, error);
+      addMessage(`❌ Error scraping ${url}: ${error.message}`, false);
+      return
+    }
+  }
+
+  console.log(`✅ Finished scraping ${results.length} URLs`);
+  return results;
+}
+
+// Crawl site with URL pattern matching
+async function crawlSite(urlPatterns = ['*']) {
+  const baseUrl = window.location.origin;
+  const visited = new Set();
+  const queue = [window.location.href];
+  const results = [];
+
+  while (queue.length > 0 && visited.size < 100) { // Limit to 100 pages
     const url = queue.shift();
     if (visited.has(url)) continue;
 
     visited.add(url);
-    console.log(`🔍 Crawling: ${url}`);
+    console.log(`🔍 Scraping: ${url}`);
 
     try {
-      // Add small delay to prevent overwhelming the server
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Fetch and parse the page
       const response = await fetch(url);
       const html = await response.text();
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
 
-      // Extract all links from the page
-      const pageLinks = Array.from(doc.querySelectorAll('a[href]'))
+      // Check if URL matches any pattern
+      const shouldScrape = urlPatterns.some(pattern => {
+        // Convert glob pattern to regex
+        const regex = new RegExp('^' + pattern.split('*').map(s => escapeRegExp(s)).join('.*') + '$');
+        return regex.test(url);
+      });
+
+      if (shouldScrape) {
+        // Store the page content
+        results.push({
+          url,
+          domain: new URL(url).hostname,
+          content: `Title: ${doc.title}\nDescription: ${doc.querySelector('meta[name="description"]')?.content || ''}\n\nContent:\n${getPageContent(doc.body)}`
+        });
+      }
+
+      // Find all links on the page
+      const links = Array.from(doc.querySelectorAll('a[href]'))
         .map(a => {
           try {
-            const href = new URL(a.href, baseUrl).href;
-            return {
-              url: href,
-              text: a.textContent.trim(),
-              title: a.title || null,
-              isInternal: href.startsWith(baseUrl)
-            };
+            return new URL(a.href, baseUrl).href;
           } catch {
             return null;
           }
         })
-        .filter(link => link !== null);
+        .filter(href =>
+          href &&
+          href.startsWith(baseUrl) && // Only include links from same domain
+          !href.includes('#') && // Exclude anchor links
+          !visited.has(href) && // Exclude already visited
+          !href.match(/\.(jpg|jpeg|png|gif|pdf|zip|doc|docx|xls|xlsx)$/i) // Exclude non-HTML resources
+        );
 
-      // Store the page content with links
-      results.push({
-        url,
-        domain: new URL(url).hostname,
-        content: `Title: ${doc.title}\nDescription: ${doc.querySelector('meta[name="description"]')?.content || ''}\n\nPage Links:\n${formatPageLinks(pageLinks)}\n\nContent:\n${getPageContent(doc.body)}`,
-        links: pageLinks // Store raw link data for reference
-      });
-
-      // Add new internal links to the queue
-      const newLinks = pageLinks
-        .filter(link =>
-          link.isInternal &&
-          !visited.has(link.url) &&
-          !link.url.includes('#') && // Exclude anchor links
-          !link.url.match(/\.(jpg|jpeg|png|gif|pdf|zip|doc|docx|xls|xlsx)$/i) // Exclude non-HTML resources
-        )
-        .map(link => link.url);
-
-      queue.push(...newLinks);
+      // Add new links to the queue
+      queue.push(...links);
 
       // Update progress
       console.log(`📊 Progress: ${visited.size} pages processed, ${queue.length} in queue`);
     } catch (error) {
-      console.error(`❌ Error crawling ${url}:`, error);
+      console.error(`Error scraping ${url}:`, error);
     }
-  }
 
-  if (visited.size >= maxPages) {
-    console.log(`ℹ️ Reached maximum page limit (${maxPages})`);
+    // Add a small delay to avoid overwhelming the server
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
 
   return results;
 }
 
-// Helper function to format links for content
-function formatPageLinks(links) {
-  const internal = links.filter(link => link.isInternal);
-  const external = links.filter(link => !link.isInternal);
+// Helper function to get clean page content
+function getPageContent(element = document.body) {
+  // Create a clone to manipulate
+  const clone = element.cloneNode(true);
 
-  let formattedLinks = 'Internal Links:\n';
-  internal.forEach(link => {
-    formattedLinks += `- ${link.text} (${link.url})${link.title ? ` - ${link.title}` : ''}\n`;
-  });
+  // Remove unwanted elements
+  const elementsToRemove = clone.querySelectorAll('script, style, noscript, iframe, svg');
+  elementsToRemove.forEach(el => el.remove());
 
-  if (external.length > 0) {
-    formattedLinks += '\nExternal Links:\n';
-    external.forEach(link => {
-      formattedLinks += `- ${link.text} (${link.url})${link.title ? ` - ${link.title}` : ''}\n`;
-    });
-  }
-
-  return formattedLinks;
+  // Get text content and clean it
+  return clone.textContent
+    .replace(/\s+/g, ' ')
+    .replace(/\n+/g, '\n')
+    .trim();
 }
 
 // Get current domain
@@ -654,7 +732,7 @@ async function storeScrapedContent(pages) {
       }
     }));
 
-    const response = await callAPI('/store', { documents });
+    const response = await callAPI('store', { documents }, "POST");
 
     if (!response.ok) {
       throw new Error('Failed to store content');
@@ -670,7 +748,7 @@ async function storeScrapedContent(pages) {
 // Example of searching stored content
 async function searchContent(query) {
   try {
-    const results = await callAPI('search', { query });
+    const results = await callAPI('search', { query }, "POST");
     console.log('🔍 Search results:', results);
     return results;
   } catch (error) {
@@ -701,9 +779,18 @@ scrapeButton.addEventListener('click', async () => {
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.action === 'updatePosition') {
     updateBubblePosition(request.position);
+    sendResponse({ success: true });
   } else if (request.action === 'scrapePage') {
-    handleScraping(request.fullSite);
+    handleScraping(false);
+    sendResponse({ success: true });
+  } else if (request.action === 'scrapeSite') {
+    handleScraping(true);
+    sendResponse({ success: true });
+  } else if (request.action === 'scrapePatterns') {
+    handleScraping(false, request.urls);
+    sendResponse({ success: true });
   }
+  return true;
 });
 
 // Load saved position
@@ -734,62 +821,57 @@ function updateBubblePosition(position) {
   }
 }
 
+// Helper function to escape special characters in regex
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Function to chunk content into smaller pieces
 function chunkContent(pageData) {
-  const maxChunkLength = 4000; // Conservative limit to ensure we stay under token limit
+  const maxChunkSize = 8000; // Maximum size of each chunk
+  const content = pageData.content;
   const chunks = [];
-  let content = pageData.content;
 
-  // Split content into sentences (roughly)
-  const sentences = content.split(/[.!?]+/);
-  let currentChunk = '';
-  let chunkIndex = 0;
+  // Split content into paragraphs
+  const paragraphs = content.split('\n').filter(p => p.trim());
+  let currentChunk = [];
+  let currentSize = 0;
 
-  for (const sentence of sentences) {
-    // Skip empty sentences
-    if (!sentence.trim()) continue;
-
-    const potentialChunk = currentChunk + sentence.trim() + '. ';
-
-    if (potentialChunk.length > maxChunkLength && currentChunk) {
-      // Store current chunk and start a new one
+  for (const paragraph of paragraphs) {
+    if (currentSize + paragraph.length > maxChunkSize && currentChunk.length > 0) {
+      // Create a new chunk from accumulated paragraphs
       chunks.push({
         url: pageData.url,
         domain: pageData.domain,
-        content: currentChunk.trim(),
-        chunk_index: chunkIndex++
+        content: currentChunk.join('\n')
       });
-      currentChunk = sentence.trim() + '. ';
-    } else {
-      currentChunk = potentialChunk;
+      currentChunk = [];
+      currentSize = 0;
     }
+
+    currentChunk.push(paragraph);
+    currentSize += paragraph.length;
   }
 
   // Add the last chunk if there's anything left
-  if (currentChunk) {
+  if (currentChunk.length > 0) {
     chunks.push({
       url: pageData.url,
       domain: pageData.domain,
-      content: currentChunk.trim(),
-      chunk_index: chunkIndex
+      content: currentChunk.join('\n')
     });
   }
 
   return chunks;
 }
 
-// Helper function to get clean page content
-function getPageContent(element = document.body) {
-  // Create a clone to manipulate
-  const clone = element.cloneNode(true);
+// Toggle chat container visibility
+chatBubble.addEventListener('click', () => {
+  chatContainer.classList.remove('hidden');
+  messageInput.focus();
+  loadChatHistory(); // Load chat history when opening chat
+});
 
-  // Remove unwanted elements
-  const elementsToRemove = clone.querySelectorAll('script, style, noscript, iframe, svg');
-  elementsToRemove.forEach(el => el.remove());
-
-  // Get text content and clean it
-  return clone.textContent
-    .replace(/\s+/g, ' ')
-    .replace(/\n+/g, '\n')
-    .trim();
-}
+closeBtn.addEventListener('click', () => {
+  chatContainer.classList.add('hidden');
+});

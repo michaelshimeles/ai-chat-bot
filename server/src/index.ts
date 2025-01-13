@@ -4,7 +4,11 @@ import { streamText } from "ai";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { stream } from "hono/streaming";
-import { addDocuments, similaritySearch, ScrapedContent } from "./lib/vectorStore.js";
+import {
+  addDocuments,
+  similaritySearch,
+  ScrapedContent,
+} from "./lib/vectorStore.js";
 import { storeChatHistory, getChatHistory } from "./db/index.js";
 
 const app = new Hono();
@@ -29,12 +33,36 @@ app.get("/", (c) => {
 // Endpoint to store scraped content
 app.post("/store", async (c) => {
   try {
-    const { documents } = await c.req.json<{ documents: ScrapedContent[] }>();
+    console.log("📥 Received store request");
+    const body = await c.req.json();
+    console.log("📦 Request body:", body);
+
+    if (!body.documents || !Array.isArray(body.documents)) {
+      console.error(
+        "❌ Invalid request: documents array missing or not an array"
+      );
+      return c.json(
+        { success: false, error: "Invalid request: documents array required" },
+        400
+      );
+    }
+
+    const { documents } = body;
+    console.log(`📊 Processing ${documents.length} documents`);
+
     await addDocuments(documents);
+    console.log("✅ Documents stored successfully");
+
     return c.json({ success: true, message: "Documents stored successfully" });
   } catch (error) {
-    console.error("Error storing documents:", error);
-    return c.json({ success: false, error: "Failed to store documents" }, 500);
+    console.error("❌ Error storing documents:", error);
+    return c.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
   }
 });
 
@@ -45,7 +73,7 @@ app.get("/chat-history/:domain", async (c) => {
 
     return c.json({
       success: true,
-      messages: messages
+      messages: messages,
     });
   } catch (error) {
     console.error("Error fetching chat history:", error);
@@ -57,7 +85,9 @@ app.get("/chat-history/:domain", async (c) => {
 });
 
 app.post("/", async (c) => {
-  const { messages, currentDomain } = await c.req.json();
+  const { messages, domain } = await c.req.json();
+
+  const currentDomain = domain;
 
   console.log("📝 Received messages:", messages);
 
@@ -77,9 +107,9 @@ app.post("/", async (c) => {
   );
 
   // Format context for better readability
-  const formattedContext = domainFilteredDocs.map((doc: any) =>
-    `Content from ${doc.metadata.url}:\n${doc.pageContent}`
-  ).join('\n\n');
+  const formattedContext = domainFilteredDocs
+    .map((doc: any) => `Content from ${doc.metadata.url}:\n${doc.pageContent}`)
+    .join("\n\n");
 
   // Add context to the conversation
   const contextEnhancedMessages = [
@@ -97,7 +127,7 @@ Instructions:
 3. Always maintain a helpful and friendly tone
 4. If you quote or reference specific content, mention that it's from the website
 
-Please provide clear and concise answers based on this context.`
+Please provide clear and concise answers based on this context.`,
     },
     ...messages,
   ];
@@ -119,4 +149,18 @@ Please provide clear and concise answers based on this context.`
   return stream(c, (stream) => stream.pipe(result.textStream));
 });
 
-serve({ fetch: app.fetch, port: 8080 });
+// Start server
+const port = process.env.PORT || 8080;
+serve({
+  fetch: app.fetch,
+  port: Number(port),
+});
+
+console.log(`🚀 Server running at http://localhost:${port}`);
+console.log(`
+📝 Available endpoints:
+- GET  /         Health check
+- POST /store    Store scraped content
+- GET  /chat-history/:domain  Get chat history
+- POST /         Chat completion
+`);

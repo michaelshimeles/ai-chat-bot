@@ -138,6 +138,142 @@
       text-align: center;
       min-height: 1.2em;
     }
+
+    .url-patterns {
+      margin-top: 12px;
+    }
+
+    .pattern-input {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .pattern-input input {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      width: 100%;
+      font-size: 14px;
+    }
+
+    .pattern-input input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+
+    .pattern-input button {
+      padding: 8px 16px;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .pattern-input button:hover {
+      background: #3b82f6;
+    }
+
+    .pattern-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      margin: 8px 0;
+    }
+
+    .pattern-list::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .pattern-list::-webkit-scrollbar-track {
+      background: #1a1a1a;
+      border-radius: 4px;
+    }
+
+    .pattern-list::-webkit-scrollbar-thumb {
+      background: #4a4a4a;
+      border-radius: 4px;
+    }
+
+    .pattern-list::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+
+    .pattern-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: #262626;
+      border-radius: 6px;
+      border: 1px solid #333;
+      gap: 8px;
+      word-break: break-all;
+    }
+
+    .pattern-item span {
+      color: #fff;
+      font-size: 14px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .pattern-item button {
+      background: none;
+      border: none;
+      color: #ef4444;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .pattern-item button:hover {
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .scrape-patterns-btn {
+      width: 100%;
+      margin-top: 12px;
+      padding: 10px;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .scrape-patterns-btn:hover {
+      background: #3b82f6;
+    }
+
+    .scrape-patterns-btn:disabled {
+      background: #333;
+      cursor: not-allowed;
+    }
+
+    .scrape-patterns-btn svg {
+      transition: transform 0.2s;
+    }
+
+    .scrape-patterns-btn:hover svg {
+      transform: translateY(2px);
+    }
   </style>
 </head>
 <body>
@@ -183,6 +319,25 @@
         </button>
       </div>
       <div class="status" id="scrape-status"></div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">URL Patterns</h2>
+      <div class="url-patterns">
+        <div class="pattern-input">
+          <input type="text" id="pattern-input" placeholder="Enter URL pattern (e.g., */docs/*)">
+          <button id="add-pattern">Add</button>
+        </div>
+        <div id="pattern-list" class="pattern-list">
+          <!-- Patterns will be added here dynamically -->
+        </div>
+        <button id="scrape-patterns" class="scrape-patterns-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19 9L12 16L5 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Scrape Selected URLs
+        </button>
+      </div>
     </div>
   </div>
   <script src="popup.js"></script>

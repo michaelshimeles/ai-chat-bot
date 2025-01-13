@@ -36,6 +36,11 @@ async function getVectorStore(): Promise<NeonPostgres> {
 
 // Add documents to vector store
 export async function addDocuments(documents: ScrapedContent[]): Promise<void> {
+    if (!documents || !Array.isArray(documents) || documents.length === 0) {
+        console.log('No valid documents to add');
+        return;
+    }
+
     const vectorStore = await getVectorStore();
     const texts = documents.map(doc => doc.content);
     const metadatas = documents.map(doc => ({
